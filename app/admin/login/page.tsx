@@ -186,21 +186,6 @@ export default function AdminLoginPage() {
             </form>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-xl p-5">
-            <p className="font-semibold text-blue-900 mb-3 text-center">Demo Credentials</p>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="bg-white rounded-lg p-3 border border-blue-100">
-                <p className="text-slate-500 text-xs mb-1">Username</p>
-                <p className="font-mono font-semibold text-slate-800">admin</p>
-              </div>
-              <div className="bg-white rounded-lg p-3 border border-blue-100">
-                <p className="text-slate-500 text-xs mb-1">Password</p>
-                <p className="font-mono font-semibold text-slate-800">admin123</p>
-              </div>
-            </div>
-          </div>
-
           {/* Footer */}
           <p className="text-center text-slate-400 text-sm mt-6">
             AXXEN International CMS

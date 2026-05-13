@@ -13,7 +13,8 @@ import {
   FileText, 
   Mail, 
   BarChart3,
-  ChevronRight
+  ChevronRight,
+  UserCog
 } from 'lucide-react';
 
 export default function AdminLayout({
@@ -102,6 +103,7 @@ export default function AdminLayout({
     { href: '/admin/page-sections', icon: FileText, label: 'Page Sections' },
     { href: '/admin/contacts', icon: Mail, label: 'Contacts' },
     { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+    { href: '/admin/profile', icon: UserCog, label: 'Profile Settings' },
   ];
 
   const isActive = (href: string) => {
@@ -251,6 +253,7 @@ export default function AdminLayout({
                 {pathname === '/admin/page-sections' && 'Page Sections'}
                 {pathname === '/admin/contacts' && 'Contact Submissions'}
                 {pathname === '/admin/analytics' && 'Analytics'}
+                {pathname === '/admin/profile' && 'Profile Settings'}
               </h2>
               <p className="text-sm text-slate-500">AXXEN International CMS</p>
             </div>

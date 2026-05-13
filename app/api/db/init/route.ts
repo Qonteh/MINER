@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
         id SERIAL PRIMARY KEY,
         username VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
-        email VARCHAR(255),
+        email VARCHAR(255) UNIQUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -40,15 +41,31 @@ export async function POST(request: NextRequest) {
       );
     `);
 
-    // Create default admin user
+    // Hash passwords for admin users
+    const eugenePassword = await bcrypt.hash('eugene051@', 10);
+    const abdulPassword = await bcrypt.hash('Qontetina051@', 10);
+
+    // Create admin user 1: Eugene
     await query(`
       INSERT INTO admin_users (username, password, email)
-      VALUES ('admin', 'admin123', 'admin@mining.com')
-      ON CONFLICT (username) DO NOTHING;
+      VALUES ('eugene', $1, 'eugene@gmail.com')
+      ON CONFLICT (username) DO UPDATE SET password = $1, email = 'eugene@gmail.com';
+    `, [eugenePassword]);
+
+    // Create admin user 2: Abdul
+    await query(`
+      INSERT INTO admin_users (username, password, email)
+      VALUES ('abdulyusuph', $1, 'abdulyusuph051@gmail.com')
+      ON CONFLICT (username) DO UPDATE SET password = $1, email = 'abdulyusuph051@gmail.com';
+    `, [abdulPassword]);
+
+    // Delete old demo admin user if exists
+    await query(`
+      DELETE FROM admin_users WHERE username = 'admin' AND email = 'admin@mining.com';
     `);
 
     return NextResponse.json(
-      { status: 'success', message: 'Database tables initialized successfully' },
+      { status: 'success', message: 'Database tables initialized successfully with admin users' },
       { status: 200 }
     );
   } catch (error) {

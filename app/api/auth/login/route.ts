@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 
 function generateToken(): string {
-  // Generate a secure random token without using crypto module
   return Math.random().toString(36).substring(2, 15) + 
          Math.random().toString(36).substring(2, 15) +
          Math.random().toString(36).substring(2, 15) +
@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query user from database
+    // Query user from database (can login with username or email)
     const result = await query(
-      'SELECT id, username, email FROM admin_users WHERE username = $1 AND password = $2',
-      [username, password]
+      'SELECT id, username, email, password FROM admin_users WHERE username = $1 OR email = $1',
+      [username]
     );
 
     if (result.rows.length === 0) {
@@ -34,6 +34,16 @@ export async function POST(request: NextRequest) {
     }
 
     const user = result.rows[0];
+
+    // Verify password with bcrypt
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return NextResponse.json(
+        { error: 'Invalid credentials' },
+        { status: 401 }
+      );
+    }
 
     // Generate session token
     const token = generateToken();
