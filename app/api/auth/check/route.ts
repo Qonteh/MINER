@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { findValidSession } from '@/lib/file-db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,28 +12,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const result = await query(
-      `SELECT s.id, u.id as uid, u.username, u.email, s.expires_at
-       FROM sessions s 
-       JOIN admin_users u ON s.user_id = u.id 
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
-    );
+    const session = findValidSession(token);
 
-    if (result.rows.length === 0) {
+    if (!session) {
       return NextResponse.json(
         { error: 'Session expired or invalid' },
         { status: 401 }
       );
     }
 
-    const user = result.rows[0];
     return NextResponse.json({
       authenticated: true,
       user: {
-        id: user.uid,
-        username: user.username,
-        email: user.email,
+        id: session.user.id,
+        username: session.user.username,
+        email: session.user.email,
       },
     });
   } catch (error) {

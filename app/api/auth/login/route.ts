@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { findUser, createSession } from '@/lib/file-db';
 
 function generateToken(): string {
   return Math.random().toString(36).substring(2, 15) + 
@@ -20,20 +20,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Query user from database (can login with username or email)
-    const result = await query(
-      'SELECT id, username, email, password FROM admin_users WHERE username = $1 OR email = $1',
-      [username]
-    );
+    // Find user by username or email
+    const user = findUser(username);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { error: 'Invalid credentials' },
         { status: 401 }
       );
     }
-
-    const user = result.rows[0];
 
     // Verify password with bcrypt
     const passwordMatch = await bcrypt.compare(password, user.password);
@@ -50,10 +45,7 @@ export async function POST(request: NextRequest) {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Store session
-    await query(
-      'INSERT INTO sessions (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.id, token, expiresAt]
-    );
+    createSession(user.id, token, expiresAt);
 
     const response = NextResponse.json(
       {
