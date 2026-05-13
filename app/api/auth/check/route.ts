@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { findValidSession, initializeAdminUsers } from '@/lib/file-db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,30 +12,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Check session in database
-    const sessionResult = await query(
-      `SELECT u.id, u.username, u.email 
-       FROM sessions s 
-       JOIN admin_users u ON s.user_id = u.id 
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
-    );
+    // Initialize admin users if not exists
+    await initializeAdminUsers();
 
-    if (sessionResult.rows.length === 0) {
+    // Check session
+    const session = findValidSession(token);
+
+    if (!session) {
       return NextResponse.json(
         { error: 'Session expired or invalid' },
         { status: 401 }
       );
     }
 
-    const user = sessionResult.rows[0];
-
     return NextResponse.json({
       authenticated: true,
       user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
+        id: session.user.id,
+        username: session.user.username,
+        email: session.user.email,
       },
     });
   } catch (error) {

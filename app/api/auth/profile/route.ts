@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { query } from '@/lib/db';
 import bcrypt from 'bcryptjs';
+import { 
+  findValidSession, 
+  findUserById, 
+  updateUser, 
+  userExists, 
+  deleteOtherSessions,
+  initializeAdminUsers
+} from '@/lib/file-db';
 
 // GET - Fetch user profile
 export async function GET(request: NextRequest) {
@@ -11,24 +18,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionResult = await query(
-      `SELECT u.id, u.username, u.email, u.created_at
-       FROM sessions s 
-       JOIN admin_users u ON s.user_id = u.id 
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
-    );
+    // Initialize admin users if not exists
+    await initializeAdminUsers();
 
-    if (sessionResult.rows.length === 0) {
+    const session = findValidSession(token);
+
+    if (!session) {
       return NextResponse.json({ error: 'Session expired' }, { status: 401 });
     }
 
-    const user = sessionResult.rows[0];
     return NextResponse.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      createdAt: user.created_at,
+      id: session.user.id,
+      username: session.user.username,
+      email: session.user.email,
+      createdAt: session.user.created_at,
     });
   } catch (error) {
     console.error('Profile fetch error:', error);
@@ -45,18 +48,13 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionResult = await query(
-      `SELECT u.id FROM sessions s 
-       JOIN admin_users u ON s.user_id = u.id 
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
-    );
+    const session = findValidSession(token);
 
-    if (sessionResult.rows.length === 0) {
+    if (!session) {
       return NextResponse.json({ error: 'Session expired' }, { status: 401 });
     }
 
-    const userId = sessionResult.rows[0].id;
+    const userId = session.user.id;
     const { username, email } = await request.json();
 
     if (!username || !email) {
@@ -64,19 +62,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Check if username or email already exists for another user
-    const existingUser = await query(
-      'SELECT id FROM admin_users WHERE (username = $1 OR email = $2) AND id != $3',
-      [username, email, userId]
-    );
-
-    if (existingUser.rows.length > 0) {
+    if (userExists(username, email, userId)) {
       return NextResponse.json({ error: 'Username or email already in use' }, { status: 409 });
     }
 
-    await query(
-      'UPDATE admin_users SET username = $1, email = $2, updated_at = NOW() WHERE id = $3',
-      [username, email, userId]
-    );
+    updateUser(userId, { username, email });
 
     return NextResponse.json({ status: 'success', message: 'Profile updated successfully' });
   } catch (error) {
@@ -94,19 +84,14 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionResult = await query(
-      `SELECT u.id, u.password FROM sessions s 
-       JOIN admin_users u ON s.user_id = u.id 
-       WHERE s.token = $1 AND s.expires_at > NOW()`,
-      [token]
-    );
+    const session = findValidSession(token);
 
-    if (sessionResult.rows.length === 0) {
+    if (!session) {
       return NextResponse.json({ error: 'Session expired' }, { status: 401 });
     }
 
-    const userId = sessionResult.rows[0].id;
-    const currentHashedPassword = sessionResult.rows[0].password;
+    const userId = session.user.id;
+    const currentHashedPassword = session.user.password;
     const { currentPassword, newPassword } = await request.json();
 
     if (!currentPassword || !newPassword) {
@@ -127,16 +112,10 @@ export async function PATCH(request: NextRequest) {
     // Hash new password
     const newHashedPassword = await bcrypt.hash(newPassword, 10);
 
-    await query(
-      'UPDATE admin_users SET password = $1, updated_at = NOW() WHERE id = $2',
-      [newHashedPassword, userId]
-    );
+    updateUser(userId, { password: newHashedPassword });
 
     // Invalidate all other sessions for this user (security measure)
-    await query(
-      'DELETE FROM sessions WHERE user_id = $1 AND token != $2',
-      [userId, token]
-    );
+    deleteOtherSessions(userId, token);
 
     return NextResponse.json({ status: 'success', message: 'Password changed successfully' });
   } catch (error) {
